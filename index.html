@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yasser Supérette - نظام الكاشير</title>
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <style>
+        body { font-family: Tahoma, sans-serif; background: #f4f7f6; margin: 0; padding: 10px; color: #333; }
+        header { background: #007bff; color: white; padding: 15px; text-align: center; border-radius: 8px; margin-bottom: 15px; }
+        h1 { margin: 0; font-size: 22px; }
+        .card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        button { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-size: 16px; cursor: pointer; width: 100%; margin-top: 5px; }
+        button.danger { background: #dc3545; }
+        input { width: 100%; padding: 10px; margin: 5px 0 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        video { width: 100%; max-height: 250px; background: black; border-radius: 5px; object-fit: cover; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 14px; }
+        th { background: #f8f9fa; }
+        .total-box { font-size: 18px; font-weight: bold; text-align: left; color: #007bff; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🛒 Yasser Supérette</h1>
+        <p style="margin: 5px 0 0 0; font-size: 14px;">نظام الكاشير السريع</p>
+    </header>
+
+    <div class="card">
+        <h3>مسح باركود المنتج</h3>
+        <video id="video" autoplay></video>
+        <button onclick="startScanner()">تشغيل الكاميرا للمسح</button>
+    </div>
+
+    <div class="card">
+        <h3>إضافة / تحديث سعر منتج</h3>
+        <label>الباركود:</label>
+        <input type="text" id="barcodeInput" placeholder="أدخل أو امسح الباركود">
+        <label>اسم المنتج:</label>
+        <input type="text" id="productNameInput" placeholder="مثال: حليب، خبز...">
+        <label>السعر (دج):</label>
+        <input type="number" id="productPriceInput" placeholder="0.00">
+        <button onclick="saveProduct()">حفظ المنتج محلياً</button>
+    </div>
+
+    <div class="card">
+        <h3>سلة المشتريات</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>المنتج</th>
+                    <th>السعر</th>
+                    <th>حذف</th>
+                </tr>
+            </thead>
+            <tbody id="cartTableBody"></tbody>
+        </table>
+        <div class="total-box">المجموع الكلي: <span id="totalAmount">0.00</span> دج</div>
+        <button class="danger" onclick="clearCart()" style="margin-top: 15px;">إفراغ السلة</button>
+    </div>
+
+    <script>
+        let codeReader = new ZXing.BrowserBarcodeReader();
+        let cart = [];
+        let products = JSON.parse(localStorage.getItem('yasser_products')) || {};
+
+        function startScanner() {
+            codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
+                if (result) {
+                    let barcode = result.text;
+                    document.getElementById('barcodeInput').value = barcode;
+                    handleScannedBarcode(barcode);
+                }
+            }).catch(err => console.error(err));
+        }
+
+        function handleScannedBarcode(barcode) {
+            if (products[barcode]) {
+                addToCart(products[barcode].name, products[barcode].price);
+            } else {
+                alert("باركود جديد: " + barcode + "\nالرجاء إدخال اسمه وسعره في الأسفل لحفظه.");
+                document.getElementById('productNameInput').focus();
+            }
+        }
+
+        function saveProduct() {
+            let barcode = document.getElementById('barcodeInput').value.trim();
+            let name = document.getElementById('productNameInput').value.trim();
+            let price = parseFloat(document.getElementById('productPriceInput').value);
+
+            if (!barcode || !name || isNaN(price)) {
+                alert("الرجاء ملء جميع بيانات المنتج بشكل صحيح!");
+                return;
+            }
+
+            products[barcode] = { name: name, price: price };
+            localStorage.setItem('yasser_products', JSON.stringify(products));
+            
+            alert("تم حفظ المنتج بنجاح!");
+            addToCart(name, price);
+
+            document.getElementById('barcodeInput').value = '';
+            document.getElementById('productNameInput').value = '';
+            document.getElementById('productPriceInput').value = '';
+        }
+
+        function addToCart(name, price) {
+            cart.push({ name: name, price: price });
+            updateCartUI();
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            updateCartUI();
+        }
+
+        function clearCart() {
+            cart = [];
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            let tbody = document.getElementById('cartTableBody');
+            tbody.innerHTML = '';
+            let total = 0;
+
+            cart.forEach((item, index) => {
+                total += item.price;
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td>${item.price.toFixed(2)}</td>
+                        <td><button class="danger" style="padding: 2px 6px; font-size: 12px;" onclick="removeFromCart(${index})">X</button></td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('totalAmount').innerText = total.toFixed(2);
+        }
+    </script>
+</body>
+</html>
